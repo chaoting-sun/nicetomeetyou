@@ -3,6 +3,8 @@
 {% block title %}焦點新聞列表 — UDN NBA{% endblock %}
 
 {% block content %}
+<div id="ws-banner" class="ws-banner" style="display:none"></div>
+
 <div id="news-list" class="news-list"></div>
 
 <div id="pagination" class="pagination"></div>
@@ -68,7 +70,7 @@
       const prevBtn = document.createElement("button");
       prevBtn.textContent = "上一頁";
       prevBtn.addEventListener("click", function () {
-        var page = getPageParam(previous) || "1";
+        const page = getPageParam(previous) || "1";
         fetchNews(page);
       });
       paginationEl.appendChild(prevBtn);
@@ -78,7 +80,7 @@
       const nextBtn = document.createElement("button");
       nextBtn.textContent = "下一頁";
       nextBtn.addEventListener("click", function () {
-        var page = getPageParam(next);
+        const page = getPageParam(next);
         if (page) fetchNews(page);
       });
       paginationEl.appendChild(nextBtn);
@@ -105,6 +107,55 @@
   }
 
   fetchNews(1);
+
+  // --- WebSocket real-time notifications ---
+  const banner = document.getElementById("ws-banner");
+  let newCount = 0;
+  let reconnectDelay = 1000;
+  const maxReconnectDelay = 30000;
+
+  function updateBanner() {
+    if (newCount === 0) {
+      banner.style.display = "none";
+      return;
+    }
+    banner.textContent = newCount + " 則新文章，點擊刷新";
+    banner.style.display = "block";
+  }
+
+  banner.addEventListener("click", function () {
+    newCount = 0;
+    updateBanner();
+    fetchNews(1);
+  });
+
+  function connectWebSocket() {
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(protocol + "//" + location.host + "/ws/news/");
+
+    ws.onopen = function () {
+      reconnectDelay = 1000;
+    };
+
+    ws.onmessage = function (e) {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === "new_article") {
+          newCount++;
+          updateBanner();
+        }
+      } catch (err) { /* ignore malformed messages */ }
+    };
+
+    ws.onclose = function () {
+      setTimeout(function () {
+        reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+        connectWebSocket();
+      }, reconnectDelay);
+    };
+  }
+
+  connectWebSocket();
 })();
 </script>
 {% endblock %}

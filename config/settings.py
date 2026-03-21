@@ -10,6 +10,7 @@ DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -49,6 +50,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 DATABASES = {
     "default": {
@@ -83,6 +85,15 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+}
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.environ.get("REDIS_URL", "redis://redis:6379/0")],
+        },
+    },
 }
 
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")

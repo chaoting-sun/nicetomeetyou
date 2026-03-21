@@ -6,9 +6,12 @@ from datetime import datetime
 from urllib.parse import urlparse, urlunparse
 
 import requests
+from asgiref.sync import async_to_sync
 from bs4 import BeautifulSoup
+from channels.layers import get_channel_layer
 from django.db import IntegrityError
 
+from .consumers import GROUP_NAME
 from .models import News
 
 logger = logging.getLogger(__name__)
@@ -158,6 +161,29 @@ def scrape_article(url: str) -> dict | None:
     }
 
 
+def _notify_new_article(news_obj: News) -> None:
+    """Push a WebSocket notification to the news_updates group."""
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer is None:
+            return
+        async_to_sync(channel_layer.group_send)(
+            GROUP_NAME,
+            {
+                "type": "new_article",
+                "article": {
+                    "id": news_obj.id,
+                    "title": news_obj.title,
+                    "author": news_obj.author,
+                    "published_at": news_obj.published_at.isoformat(),
+                    "hero_image_url": news_obj.hero_image_url,
+                },
+            },
+        )
+    except Exception:
+        logger.exception("Failed to send WebSocket notification")
+
+
 def run_scraper() -> dict:
     """Main entry point. Scrapes the index carousel, fetches each article,
     and saves new ones to the database.
@@ -183,9 +209,10 @@ def run_scraper() -> dict:
                 summary["failed"] += 1
                 continue
 
-            News.objects.create(**article_data)
+            news_obj = News.objects.create(**article_data)
             logger.info("SAVED: %s", article_data["title"])
             summary["created"] += 1
+            _notify_new_article(news_obj)
         except IntegrityError:
             logger.info("SKIP (race condition duplicate): %s", url)
             summary["skipped"] += 1

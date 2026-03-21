@@ -22,3 +22,4 @@ docker-compose.yml
 staticfiles/
 mediafiles/
 README.md
+celerybeat-schedule

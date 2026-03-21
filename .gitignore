@@ -22,3 +22,5 @@ Thumbs.db
 
 staticfiles/
 mediafiles/
+
+celerybeat-schedule

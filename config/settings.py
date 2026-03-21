@@ -84,3 +84,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
 }
+
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "Asia/Taipei"
+
+CELERY_BEAT_SCHEDULE = {
+    "scrape-udn-nba-news": {
+        "task": "news.tasks.scrape_news_task",
+        "schedule": 3600,
+    },
+}

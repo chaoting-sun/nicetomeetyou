@@ -14,16 +14,6 @@
   const listEl = document.getElementById("news-list");
   const paginationEl = document.getElementById("pagination");
 
-  function formatDate(isoString) {
-    const d = new Date(isoString);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const hour = String(d.getHours()).padStart(2, "0");
-    const minute = String(d.getMinutes()).padStart(2, "0");
-    return year + "/" + month + "/" + day + " " + hour + ":" + minute;
-  }
-
   function getPageParam(url) {
     if (!url) return null;
     try {
@@ -46,15 +36,15 @@
 
       let thumb = "";
       if (article.hero_image_url) {
-        thumb = '<img src="' + article.hero_image_url + '" alt="" class="news-thumb">';
+        thumb = '<img src="' + escapeHtml(article.hero_image_url) + '" alt="" class="news-thumb">';
       }
 
       card.innerHTML =
         thumb +
         '<div class="news-card-body">' +
-          '<h2 class="news-card-title">' + article.title + "</h2>" +
+          '<h2 class="news-card-title">' + escapeHtml(article.title) + "</h2>" +
           '<p class="news-card-meta">' +
-            (article.author ? article.author + " · " : "") +
+            (article.author ? escapeHtml(article.author) + " · " : "") +
             formatDate(article.published_at) +
           "</p>" +
         "</div>";

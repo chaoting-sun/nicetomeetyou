@@ -9,16 +9,6 @@
     const pk = document.getElementById("news-detail").getAttribute("data-pk");
     const detailEl = document.getElementById("news-detail");
 
-    function formatDate(isoString) {
-      const d = new Date(isoString);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      const hour = String(d.getHours()).padStart(2, "0");
-      const minute = String(d.getMinutes()).padStart(2, "0");
-      return year + "/" + month + "/" + day + " " + hour + ":" + minute;
-    }
-
     detailEl.innerHTML = '<p class="loading">載入中…</p>';
 
     fetch("/api/news/" + pk + "/")
@@ -29,16 +19,16 @@
       .then(function (article) {
         detailEl.innerHTML =
           '<h1 class="detail-title">' +
-          article.title +
+          escapeHtml(article.title) +
           "</h1>" +
           '<p class="detail-meta">' +
-          (article.author ? article.author + " · " : "") +
+          (article.author ? escapeHtml(article.author) + " · " : "") +
           formatDate(article.published_at) +
           (article.source_name
             ? ' · <a href="' +
-              article.source_url +
+              escapeHtml(article.source_url) +
               '" target="_blank" rel="noopener">' +
-              article.source_name +
+              escapeHtml(article.source_name) +
               "</a>"
             : "") +
           "</p>" +

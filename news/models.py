@@ -15,6 +15,7 @@ class News(models.Model):
 
     class Meta:
         ordering = ["-published_at"]
+        verbose_name_plural = "news"
         indexes = [
             models.Index(fields=["-published_at"]),
         ]

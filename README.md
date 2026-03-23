@@ -1,24 +1,39 @@
 # Unnotech Backend Engineer 徵才小專案
 
-1. 抓取 http://tw-nba.udn.com/nba/index 中的焦點新聞。
-2. 使用 [Django](https://www.djangoproject.com/) 設計恰當的 Model，並將所抓取新聞存儲至 DB。
-3. 使用 [Django REST Framework](http://www.django-rest-framework.org/) 配合 AJAX 實現以下頁面：
-   - 焦點新聞列表
-   - 新聞詳情頁面
-4. 以 Pull-Request 的方式將代碼提交。
+- [x] 抓取 http://tw-nba.udn.com/nba/index 中的焦點新聞。
+- [x] 使用 [Django](https://www.djangoproject.com/) 設計恰當的 Model，並將所抓取新聞存儲至 DB。
+- [x] 使用 [Django REST Framework](http://www.django-rest-framework.org/) 配合 AJAX 實現以下頁面：
+  - 焦點新聞列表
+  - 新聞詳情頁面
+- [x] 以 Pull-Request 的方式將代碼提交。
 
 ## 進階要求
 
-1. 實現爬蟲自動定時抓取。
-2. 使用 Websocket 服務，抓取到新的新聞時立即通知前端頁面。
-3. 將本 demo 部署到伺服器並可正確運行。
-4. 所實現新聞列表 API 可承受 100 QPS 的壓力測試。
+- [x] 實現爬蟲自動定時抓取。
+- [x] 使用 Websocket 服務，抓取到新的新聞時立即通知前端頁面。
+- [x] 將本 demo 部署到伺服器並可正確運行。
+- [x] 所實現新聞列表 API 可承受 100 QPS 的壓力測試。
 
 ## 專案說明
 
 本專案為 UDN NBA 焦點新聞爬蟲與展示系統。系統自動抓取[聯合新聞網 NBA 頁面](http://tw-nba.udn.com/nba/index)的焦點新聞，存入 PostgreSQL 資料庫，並透過 Django REST Framework 提供 API，前端以 AJAX 方式呈現新聞列表與詳情頁面。
 
 線上版本：http://35.206.126.166/
+
+快速導覽
+
+- [系統架構](#系統架構)
+- [技術棧](#技術棧)
+- [本地開發](#本地開發)
+- [環境變數](#環境變數)
+- [爬蟲執行方式](#爬蟲執行方式)
+- [API](#api)
+- [即時通知](#即時通知)
+- [執行測試](#執行測試)
+- [效能優化](#效能優化)
+- [架構決策](#架構決策)
+- [專案結構](#專案結構)
+- [資料模型](#資料模型)
 
 ---
 
@@ -45,9 +60,12 @@ flowchart LR
     Nginx -- WebSocket 即時通知 --> User
 ```
 
-- **使用者請求**：瀏覽器透過 Nginx 存取 Django，Django 從 PostgreSQL 讀取資料（或從 Redis 取得快取）後回傳
-- **定時爬蟲**：Celery Beat 每小時將任務送入 Redis，Celery Worker 領取後抓取 UDN NBA 新聞並存入 PostgreSQL
-- **即時通知**：Worker 存入新文章後，透過 Redis Channel Layer 通知 Django，再經 Nginx 以 WebSocket 推送至瀏覽器
+系統以 Django 為核心，整合 PostgreSQL、Redis、Celery 與 WebSocket，將「抓取新聞、儲存資料、提供 API、推送更新」串成同一條處理流程：
+
+- **資料抓取與入庫**：Celery Beat 每小時透過 Redis 派發爬蟲任務，由 Celery Worker 以兩階段方式（列表頁 → 文章頁）抓取 UDN NBA 焦點新聞，並寫入 PostgreSQL；以 `source_url` 唯一約束避免重複資料。
+- **API 與前端呈現**：瀏覽器經由 Nginx 存取 Django，前端使用 JavaScript fetch 呼叫新聞列表（`GET /api/news/`）與詳情（`GET /api/news/<id>/`）API，後端則從 PostgreSQL 讀取資料並回傳結果。
+- **快取與即時通知**：列表 API 以 Redis 快取回應（TTL 60 秒）；當 Worker 寫入新文章後，會透過 Redis Channel Layer 通知 Django，再經 Nginx 以 WebSocket 推送到瀏覽器。
+- **部署與效能**：整體服務以 Docker Compose 管理，Web 層採 Gunicorn + Uvicorn（ASGI）架構，列表 API 可承受 100 QPS 壓力測試。
 
 ---
 
@@ -68,20 +86,7 @@ flowchart LR
 
 ---
 
-### 已完成功能
-
-- 爬蟲抓取 UDN NBA 焦點新聞（兩階段：列表頁 → 文章頁），以 `source_url` 去重
-- REST API：分頁新聞列表（`GET /api/news/`）與新聞詳情（`GET /api/news/<id>/`）
-- 前端頁面：新聞列表頁與詳情頁，使用 JavaScript fetch 呼叫 API 渲染
-- Celery Beat 定時排程，每小時自動執行爬蟲
-- WebSocket 即時通知，爬蟲抓到新文章時推送至前端
-- Redis 快取列表 API 回應（TTL 60 秒），列表查詢使用 `defer("content")` 減少資料量
-- Nginx 反向代理 + 靜態檔案託管
-- 部署至 GCP VM，對外提供服務
-
----
-
-### 如何在本地啟動
+### 本地開發
 
 #### 前置需求
 
@@ -145,7 +150,7 @@ docker compose exec web python manage.py createsuperuser
 
 ---
 
-### 執行爬蟲
+### 爬蟲執行方式
 
 系統啟動後，Celery Beat 會每小時自動觸發爬蟲。如需手動執行：
 
@@ -162,7 +167,7 @@ docker compose exec web python manage.py scrape_news
 
 ---
 
-### API 文件
+### API
 
 Base URL：http://35.206.126.166（本地開發為 `http://localhost`）
 
@@ -227,33 +232,23 @@ GET /api/news/<id>/
 
 ---
 
-### WebSocket 即時通知
+### 即時通知
 
 前端列表頁會透過 WebSocket 連線至 `ws://<host>/ws/news/`。當爬蟲抓到新文章時，伺服器會即時推送通知，前端收到後自動顯示提示，無需手動重新整理頁面。
 
 ---
 
-### 技術選型
+### 執行測試
 
-以下記錄三個影響架構的關鍵決策與取捨，完整比較表見 [`docs/tech-choice.md`](docs/tech-choice.md)。
+```bash
+docker compose exec web python manage.py test
+```
 
-#### Gunicorn + Uvicorn 取代 Daphne
+測試涵蓋：
 
-Daphne 為 Django Channels 官方 ASGI 伺服器，但其單一程序架構在 100 QPS 壓力測試下出現請求排隊，p95 延遲逼近 500ms 上限且丟棄 4.9% 的請求。改用 Gunicorn 搭配 Uvicorn Worker 後，透過 pre-fork 模型產生多個 Worker 程序，各自擁有獨立 event loop，p95 延遲降至 34ms、丟棄率降至 0.4%。WebSocket 路由（`ProtocolTypeRouter`）無需修改即可相容。
-
-> **取捨**：多了 `gunicorn`、`uvicorn` 兩個依賴，但換來可量化的效能提升與生產環境標準部署模式。
-
-#### 單一 Redis 實例，以 DB 編號隔離用途
-
-Cache（DB 1）、Celery Broker（DB 0）、Channel Layer（DB 0）共用同一個 Redis 容器。在本專案的負載規模下（快取讀取 ~100KB/s、Celery 每小時一次任務、少量 WebSocket 廣播），資源競爭與記憶體壓力幾乎不存在，`cache.clear()` 呼叫 `FLUSHDB` 也只影響所選 DB，不會誤刪任務佇列。
-
-> **取捨**：犧牲了物理隔離（獨立 eviction policy、獨立故障域），換取更簡單的基礎設施。若流量成長至需要為 Cache 設定 `allkeys-lru` 而 Broker 需要 `noeviction` 時，應拆為兩個 Redis 容器。
-
-#### Celery Beat 取代 Cron Job
-
-定時爬蟲使用 Celery Beat 排程而非系統層級的 cron job。Celery Beat 的排程定義在 `settings.py` 的 `CELERY_BEAT_SCHEDULE` 中，與應用程式碼一同版本控管，且任務執行於 Celery Worker 中，可直接取用 Django ORM 與 Channel Layer（爬蟲完成後透過 WebSocket 推送通知）。若使用 cron，則需額外維護 crontab 設定、處理 Django 環境初始化、並另尋機制觸發 WebSocket 通知。
-
-> **取捨**：多了 `celery_worker` 與 `celery_beat` 兩個常駐容器（佔用約 50–80MB 記憶體），但換來排程、任務執行、即時通知的一體化整合。若專案不需要 WebSocket 通知且只需簡單定時觸發，cron + management command 會是更輕量的選擇。
+- **Model 測試**：建立、欄位驗證、`source_url` 唯一約束
+- **API 測試**：列表分頁、詳情回應、404 處理
+- **Scraper 測試**：HTML 解析邏輯
 
 ---
 
@@ -292,17 +287,27 @@ k6 run tests/load_test.js
 
 ---
 
-### 執行測試
+### 架構決策
 
-```bash
-docker compose exec web python manage.py test
-```
+以下記錄三個影響架構的關鍵決策與取捨，完整比較表見 [`docs/tech-choice.md`](docs/tech-choice.md)。
 
-測試涵蓋：
+#### Gunicorn + Uvicorn 取代 Daphne
 
-- **Model 測試**：建立、欄位驗證、`source_url` 唯一約束
-- **API 測試**：列表分頁、詳情回應、404 處理
-- **Scraper 測試**：HTML 解析邏輯
+Daphne 為 Django Channels 官方 ASGI 伺服器，但其單一程序架構在 100 QPS 壓力測試下出現請求排隊，p95 延遲逼近 500ms 上限且丟棄 4.9% 的請求。改用 Gunicorn 搭配 Uvicorn Worker 後，透過 pre-fork 模型產生多個 Worker 程序，各自擁有獨立 event loop，p95 延遲降至 34ms、丟棄率降至 0.4%。WebSocket 路由（`ProtocolTypeRouter`）無需修改即可相容。
+
+> **取捨**：多了 `gunicorn`、`uvicorn` 兩個依賴，但換來可量化的效能提升與生產環境標準部署模式。
+
+#### 單一 Redis 實例，以 DB 編號隔離用途
+
+Cache（DB 1）、Celery Broker（DB 0）、Channel Layer（DB 0）共用同一個 Redis 容器。在本專案的負載規模下（快取讀取 ~100KB/s、Celery 每小時一次任務、少量 WebSocket 廣播），資源競爭與記憶體壓力幾乎不存在，`cache.clear()` 呼叫 `FLUSHDB` 也只影響所選 DB，不會誤刪任務佇列。
+
+> **取捨**：犧牲了物理隔離（獨立 eviction policy、獨立故障域），換取更簡單的基礎設施。若流量成長至需要為 Cache 設定 `allkeys-lru` 而 Broker 需要 `noeviction` 時，應拆為兩個 Redis 容器。
+
+#### Celery Beat 取代 Cron Job
+
+定時爬蟲使用 Celery Beat 排程而非系統層級的 cron job。Celery Beat 的排程定義在 `settings.py` 的 `CELERY_BEAT_SCHEDULE` 中，與應用程式碼一同版本控管，且任務執行於 Celery Worker 中，可直接取用 Django ORM 與 Channel Layer（爬蟲完成後透過 WebSocket 推送通知）。若使用 cron，則需額外維護 crontab 設定、處理 Django 環境初始化、並另尋機制觸發 WebSocket 通知。
+
+> **取捨**：多了 `celery_worker` 與 `celery_beat` 兩個常駐容器（佔用約 50–80MB 記憶體），但換來排程、任務執行、即時通知的一體化整合。若專案不需要 WebSocket 通知且只需簡單定時觸發，cron + management command 會是更輕量的選擇。
 
 ---
 
@@ -347,7 +352,7 @@ nicetomeetyou/
 └── manage.py
 ```
 
-### 資料模型 (News)
+### 資料模型
 
 | 欄位                 | 型別              | 說明                     |
 | -------------------- | ----------------- | ------------------------ |

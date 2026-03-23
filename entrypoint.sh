@@ -8,6 +8,9 @@ if [ "$1" = "gunicorn" ]; then
 
     echo "Collecting static files..."
     python manage.py collectstatic --noinput
+
+    echo "Running news scraper..."
+    python manage.py scrape_news
 fi
 
 exec "$@"

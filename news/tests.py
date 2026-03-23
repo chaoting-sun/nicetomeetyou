@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -30,6 +31,7 @@ def _create_news(n=1, **overrides):
 
 class NewsListAPITest(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.url = reverse("news-list")
 

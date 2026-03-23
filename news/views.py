@@ -1,4 +1,6 @@
 from django.shortcuts import render
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 
 from .models import News
@@ -6,8 +8,13 @@ from .serializers import NewsDetailSerializer, NewsListSerializer
 
 
 class NewsListView(ListAPIView):
-    queryset = News.objects.all()
+    # # Avoid loading large content field in list API to reduce query size and memory usage
+    queryset = News.objects.defer("content")
     serializer_class = NewsListSerializer
+
+    @method_decorator(cache_page(60))
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class NewsDetailView(RetrieveAPIView):

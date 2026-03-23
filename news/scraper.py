@@ -11,6 +11,8 @@ from bs4 import BeautifulSoup
 from channels.layers import get_channel_layer
 from django.db import IntegrityError
 
+from django.core.cache import cache
+
 from .consumers import GROUP_NAME
 from .models import News
 
@@ -221,6 +223,10 @@ def run_scraper() -> dict:
             summary["failed"] += 1
 
         time.sleep(REQUEST_DELAY)
+
+    if summary["created"] > 0:
+        cache.clear()
+        logger.info("Cache cleared after creating %d new articles", summary["created"])
 
     logger.info(
         "Scraping complete: %d created, %d skipped, %d failed",

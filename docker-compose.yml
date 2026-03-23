@@ -20,7 +20,7 @@ services:
 
   web:
     build: .
-    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
+    command: gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:8000
     ports:
       - "8000:8000"
     env_file: .env

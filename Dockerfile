@@ -19,4 +19,4 @@ RUN chmod +x entrypoint.sh
 EXPOSE 8000
 
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+CMD ["gunicorn", "config.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "-w", "2", "-b", "0.0.0.0:8000"]

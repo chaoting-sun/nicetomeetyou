@@ -10,9 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Collect static files
-RUN DJANGO_SECRET_KEY=build-placeholder python manage.py collectstatic --noinput
-
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 

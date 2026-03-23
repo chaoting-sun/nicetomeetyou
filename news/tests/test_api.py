@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from .models import News
+from news.models import News
 
 
 def _create_news(n=1, **overrides):
@@ -47,14 +47,31 @@ class NewsListAPITest(TestCase):
         self.assertEqual(resp.data["count"], 15)
         self.assertEqual(len(resp.data["results"]), 10)
 
+    def test_list_second_page(self):
+        _create_news(15)
+        resp = self.client.get(self.url, {"page": 2})
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data["results"]), 5)
+        self.assertIsNone(resp.data["next"])
+
+    def test_list_returns_exact_fields(self):
+        _create_news(1)
+        resp = self.client.get(self.url)
+
+        article = resp.data["results"][0]
+        expected_fields = {"id", "title", "author", "published_at", "hero_image_url"}
+        self.assertEqual(set(article.keys()), expected_fields)
+
     def test_list_excludes_content(self):
         _create_news(1)
         resp = self.client.get(self.url)
 
         article = resp.data["results"][0]
         self.assertNotIn("content", article)
-        self.assertIn("title", article)
-        self.assertIn("hero_image_url", article)
+        self.assertNotIn("source_url", article)
+        self.assertNotIn("source_name", article)
+        self.assertNotIn("hero_image_caption", article)
 
     def test_list_ordered_by_published_at_desc(self):
         articles = _create_news(3)
@@ -72,27 +89,59 @@ class NewsListAPITest(TestCase):
         self.assertEqual(resp.data["count"], 0)
         self.assertEqual(resp.data["results"], [])
 
+    def test_list_disallows_write_methods(self):
+        for method in ("post", "put", "patch", "delete"):
+            resp = getattr(self.client, method)(self.url, {}, format="json")
+            self.assertEqual(
+                resp.status_code,
+                status.HTTP_405_METHOD_NOT_ALLOWED,
+                f"{method.upper()} should return 405",
+            )
+
 
 class NewsDetailAPITest(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
 
-    def test_detail_returns_full_article(self):
+    def test_detail_returns_all_fields(self):
         article = _create_news(1)[0]
         url = reverse("news-detail", args=[article.pk])
         resp = self.client.get(url)
 
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        expected_fields = {
+            "id", "title", "author", "published_at", "source_name",
+            "source_url", "content", "hero_image_url", "hero_image_caption",
+            "created_at", "updated_at",
+        }
+        self.assertEqual(set(resp.data.keys()), expected_fields)
+
+    def test_detail_returns_correct_data(self):
+        article = _create_news(1)[0]
+        url = reverse("news-detail", args=[article.pk])
+        resp = self.client.get(url)
+
         self.assertEqual(resp.data["id"], article.pk)
         self.assertEqual(resp.data["title"], article.title)
-        self.assertIn("content", resp.data)
         self.assertEqual(resp.data["content"], article.content)
-        self.assertIn("source_url", resp.data)
-        self.assertIn("created_at", resp.data)
-        self.assertIn("updated_at", resp.data)
+        self.assertEqual(resp.data["author"], article.author)
+        self.assertEqual(resp.data["source_url"], article.source_url)
+        self.assertEqual(resp.data["hero_image_caption"], article.hero_image_caption)
 
     def test_detail_404_for_nonexistent(self):
         url = reverse("news-detail", args=[99999])
         resp = self.client.get(url)
 
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_detail_disallows_write_methods(self):
+        article = _create_news(1)[0]
+        url = reverse("news-detail", args=[article.pk])
+        for method in ("post", "put", "patch", "delete"):
+            resp = getattr(self.client, method)(url, {}, format="json")
+            self.assertEqual(
+                resp.status_code,
+                status.HTTP_405_METHOD_NOT_ALLOWED,
+                f"{method.upper()} should return 405",
+            )
